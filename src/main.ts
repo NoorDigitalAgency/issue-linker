@@ -143,12 +143,16 @@ export async function run(): Promise<void> {
 
             const issuesToDisconnect = toDisconnect.map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
 
+            core.debug(`Disconnecting issues: ${JSON.stringify(issuesToDisconnect)}`);
+
             await client.deleteIssuesFromPullRequest(issuesToDisconnect, { owner, repo, number: prNumber });
           }
 
           if (toConnect.length > 0) {
 
             const issuesToConnect = toConnect.map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
+
+            core.debug(`Connecting issues: ${JSON.stringify(issuesToConnect)}`);
 
             await client.connectGitHubIssueToGitHubPullRequest(issuesToConnect, {owner, repo, number: prNumber});
           }
