@@ -131,30 +131,36 @@ export async function run(): Promise<void> {
 
         const common = intersection(issuesToConnect, issuesToDisconnect);
 
-        const toConnect = difference(issuesToConnect, common);
+        const toConnect = difference(issuesToConnect, common).map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
 
-        const toDisconnect = difference(issuesToDisconnect, common);
+        core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
 
-        if (toDisconnect.length > 0 || toConnect.length > 0) {
+        const toDisconnect = difference(issuesToDisconnect, common).map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
+
+        core.debug(`Disconnecting issues: ${JSON.stringify(toDisconnect)}`);
+
+        const pr = {owner, repo, number: prNumber};
+
+        core.debug(`Pull Request: ${JSON.stringify(pr)}`);
+
+        if (toConnect.length > 0 || toDisconnect.length > 0) {
+
+          core.debug('Connecting/disconnecting issues..');
 
           const client = new ZenHubClient(zenHubKey, zenHubWorkflow, github);
 
-          if (toDisconnect.length > 0) {
-
-            const issuesToDisconnect = toDisconnect.map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
-
-            core.debug(`Disconnecting issues: ${JSON.stringify(issuesToDisconnect)}`);
-
-            await client.deleteIssuesFromPullRequest(issuesToDisconnect, { owner, repo, number: prNumber });
-          }
-
           if (toConnect.length > 0) {
 
-            const issuesToConnect = toConnect.map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
+            core.debug('Connecting issues..');
 
-            core.debug(`Connecting issues: ${JSON.stringify(issuesToConnect)}`);
+            await client.connectGitHubIssueToGitHubPullRequest(toConnect, pr);
+          }
 
-            await client.connectGitHubIssueToGitHubPullRequest(issuesToConnect, {owner, repo, number: prNumber});
+          if (toDisconnect.length > 0) {
+
+            core.debug('Disconnecting issues..');
+
+            await client.deleteIssuesFromPullRequest(toDisconnect, pr);
           }
         }
     }

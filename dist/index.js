@@ -92451,19 +92451,22 @@ async function run() {
             const issuesToConnect = (0, lodash_1.uniq)(issues.filter(i => !i.pr && i.open && i.labels.every(l => !['beta', 'production'].includes(l))).map(i => i.id));
             const issuesToDisconnect = (0, lodash_1.uniq)(removingIssues.map(i => `${i.owner}/${i.repo}#${i.issue}`));
             const common = (0, lodash_1.intersection)(issuesToConnect, issuesToDisconnect);
-            const toConnect = (0, lodash_1.difference)(issuesToConnect, common);
-            const toDisconnect = (0, lodash_1.difference)(issuesToDisconnect, common);
-            if (toDisconnect.length > 0 || toConnect.length > 0) {
+            const toConnect = (0, lodash_1.difference)(issuesToConnect, common).map(i => ({ ...(i.match(linkRegex).groups) })).map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
+            core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
+            const toDisconnect = (0, lodash_1.difference)(issuesToDisconnect, common).map(i => ({ ...(i.match(linkRegex).groups) })).map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
+            core.debug(`Disconnecting issues: ${JSON.stringify(toDisconnect)}`);
+            const pr = { owner, repo, number: prNumber };
+            core.debug(`Pull Request: ${JSON.stringify(pr)}`);
+            if (toConnect.length > 0 || toDisconnect.length > 0) {
+                core.debug('Connecting/disconnecting issues..');
                 const client = new zenhub_client_1.ZenHubClient(zenHubKey, zenHubWorkflow, github);
-                if (toDisconnect.length > 0) {
-                    const issuesToDisconnect = toDisconnect.map(i => ({ ...(i.match(linkRegex).groups) })).map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
-                    core.debug(`Disconnecting issues: ${JSON.stringify(issuesToDisconnect)}`);
-                    await client.deleteIssuesFromPullRequest(issuesToDisconnect, { owner, repo, number: prNumber });
-                }
                 if (toConnect.length > 0) {
-                    const issuesToConnect = toConnect.map(i => ({ ...(i.match(linkRegex).groups) })).map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
-                    core.debug(`Connecting issues: ${JSON.stringify(issuesToConnect)}`);
-                    await client.connectGitHubIssueToGitHubPullRequest(issuesToConnect, { owner, repo, number: prNumber });
+                    core.debug('Connecting issues..');
+                    await client.connectGitHubIssueToGitHubPullRequest(toConnect, pr);
+                }
+                if (toDisconnect.length > 0) {
+                    core.debug('Disconnecting issues..');
+                    await client.deleteIssuesFromPullRequest(toDisconnect, pr);
                 }
             }
         }
