@@ -1,18 +1,20 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Issue Linker'
+description: 'Links the issue with the pull request on ZenHub'
+author: 'Rojan Gh.'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  token:
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: 'Your output description here'
+    description: Token
+  zenhub-key:
+    default: ''
+    required: false
+    description: ZenHub's API Key
+  zenhub-workspace:
+    default: ''
+    required: false
+    description: ZenHub's Workspace Id
 
 runs:
   using: node20
