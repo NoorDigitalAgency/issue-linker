@@ -125,44 +125,58 @@ export async function run(): Promise<void> {
 
           }, '')}`;
 
-        const issuesToConnect = uniq(issues.filter(i => !i.pr && i.open && i.labels.every(l => !['beta', 'production'].includes(l))).map(i => i.id));
+      const issuesToConnect = uniq(issues.filter(i => !i.pr && i.open && i.labels.every(l => !['beta', 'production'].includes(l))).map(i => i.id));
 
-        const issuesToDisconnect = uniq(removingIssues.map(i => `${i.owner}/${i.repo}#${i.issue}`));
+      core.debug(`Issues to connect: ${JSON.stringify(issuesToConnect)}`);
 
-        const common = intersection(issuesToConnect, issuesToDisconnect);
+      const issuesToDisconnect = uniq(removingIssues.map(i => `${i.owner}/${i.repo}#${i.issue}`));
 
-        const toConnect = difference(issuesToConnect, common).map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
+      core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
 
-        core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
+      const common = intersection(issuesToConnect, issuesToDisconnect);
 
-        const toDisconnect = difference(issuesToDisconnect, common).map(i => ({...(i.match(linkRegex)!.groups)})).map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
+      core.debug(`Common issues: ${JSON.stringify(common)}`);
 
-        core.debug(`Disconnecting issues: ${JSON.stringify(toDisconnect)}`);
+      const toConnectParts = difference(issuesToConnect, common).map(i => ({...(i.match(linkRegex)!.groups)}));
 
-        const pr = {owner, repo, number: prNumber};
+      core.debug(`Connecting issue parts: ${JSON.stringify(toConnectParts)}`);
 
-        core.debug(`Pull Request: ${JSON.stringify(pr)}`);
+      const toConnect = toConnectParts.map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
 
-        if (toConnect.length > 0 || toDisconnect.length > 0) {
+      core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
 
-          core.debug('Connecting/disconnecting issues..');
+      const toDisconnectParts = difference(issuesToDisconnect, common).map(i => ({...(i.match(linkRegex)!.groups)}));
 
-          const client = new ZenHubClient(zenHubKey, zenHubWorkflow, github);
+      core.debug(`Disconnecting issue parts: ${JSON.stringify(toDisconnectParts)}`);
 
-          if (toConnect.length > 0) {
+      const toDisconnect = toDisconnectParts.map(i => ({owner: i.owner, repo: i.repo, number: +i.issue}));
 
-            core.debug('Connecting issues..');
+      core.debug(`Disconnecting issues: ${JSON.stringify(toDisconnect)}`);
 
-            await client.connectGitHubIssueToGitHubPullRequest(toConnect, pr);
-          }
+      const pr = {owner, repo, number: prNumber};
 
-          if (toDisconnect.length > 0) {
+      core.debug(`Pull Request: ${JSON.stringify(pr)}`);
 
-            core.debug('Disconnecting issues..');
+      if (toConnect.length > 0 || toDisconnect.length > 0) {
 
-            await client.deleteIssuesFromPullRequest(toDisconnect, pr);
-          }
+        core.debug('Connecting/disconnecting issues..');
+
+        const client = new ZenHubClient(zenHubKey, zenHubWorkflow, github);
+
+        if (toConnect.length > 0) {
+
+          core.debug('Connecting issues..');
+
+          await client.connectGitHubIssueToGitHubPullRequest(toConnect, pr);
         }
+
+        if (toDisconnect.length > 0) {
+
+          core.debug('Disconnecting issues..');
+
+          await client.deleteIssuesFromPullRequest(toDisconnect, pr);
+        }
+      }
     }
 
     await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body: markdown});
