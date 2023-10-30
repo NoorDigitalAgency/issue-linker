@@ -92518,7 +92518,8 @@ async function run() {
         core.debug(`Owner: ${owner}, Repo: ${repo}, PR Number: ${prNumber}`);
         const history = await (0, functions_1.getPullRequestBodyHistoryAscending)(owner, repo, prNumber, github);
         core.debug(`History: ${JSON.stringify(history)}`);
-        const body = history.pop() ?? '';
+        const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
+        const body = pullRequest.body ?? '';
         core.debug(`Body: ${body}`);
         const markerComments = (await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
         const links = [...body.matchAll(linkRegex)].map(link => link.groups)
@@ -92545,7 +92546,6 @@ async function run() {
                 console.log(e);
             }
         }
-        const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
         let markdown;
         if (issues.length === 0 || issues.every(i => i.labels.some(l => ['beta', 'production'].includes(l)) || !i.open || i.pr)) {
             markdown = `${reportMarker}⚠️⚠️<b>No issues to be marked!</b>⚠️⚠️\n@${pullRequest.user.login}, please link the related issues <b>(if any)</b> either like \`#123\` or \`NoorDigitalAgency/repository-name#456\`.${issues.length > 0 ? '\n\n🗑️<b>Invalid links:</b>\n' : ''}`;

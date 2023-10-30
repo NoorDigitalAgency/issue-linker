@@ -43,7 +43,9 @@ export async function run(): Promise<void> {
 
     core.debug(`History: ${JSON.stringify(history)}`);
 
-    const body = history.pop() ?? '';
+    const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
+
+    const body = pullRequest.body ?? '';
 
     core.debug(`Body: ${body}`);
 
@@ -82,8 +84,6 @@ export async function run(): Promise<void> {
 
       } catch (e) { console.log(e); }
     }
-
-    const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
 
     let markdown;
 
