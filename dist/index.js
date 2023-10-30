@@ -92582,11 +92582,11 @@ async function run() {
                 .map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue }))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`))
                 .filter(i => !issuesToConnect.includes(i));
             core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
-            const toConnectParts = issuesToConnect.map(i => ({ ...(i.match(linkRegex).groups) }));
+            const toConnectParts = issuesToConnect.map(i => ({ ...(Array.from(i.matchAll(linkRegex)).pop().groups) }));
             core.debug(`Connecting issue parts: ${JSON.stringify(toConnectParts)}`);
             const toConnect = toConnectParts.map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
             core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
-            const toDisconnectParts = issuesToDisconnect.map(i => ({ ...(i.match(linkRegex).groups) }));
+            const toDisconnectParts = issuesToDisconnect.map(i => ({ ...(Array.from(i.matchAll(linkRegex)).pop().groups) }));
             core.debug(`Disconnecting issue parts: ${JSON.stringify(toDisconnectParts)}`);
             const toDisconnect = toDisconnectParts.map(i => ({ owner: i.owner, repo: i.repo, number: +i.issue }));
             core.debug(`Disconnecting issues: ${JSON.stringify(toDisconnect)}`);

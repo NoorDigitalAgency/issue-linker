@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import {context, getOctokit} from '@actions/github';
 import { ZenHubClient } from "@noordigitalagency/zenhub-client";
-import { uniq, intersection, difference } from 'lodash';
+import { uniq } from 'lodash';
 import {getPullRequestBodyHistoryAscending} from "./functions";
 
 /**
@@ -152,7 +152,7 @@ export async function run(): Promise<void> {
 
       core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
 
-      const toConnectParts = issuesToConnect.map(i => ({...(i.match(linkRegex)!.groups)}));
+      const toConnectParts = issuesToConnect.map(i => ({...(Array.from(i.matchAll(linkRegex)).pop()!.groups)}));
 
       core.debug(`Connecting issue parts: ${JSON.stringify(toConnectParts)}`);
 
@@ -160,7 +160,7 @@ export async function run(): Promise<void> {
 
       core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
 
-      const toDisconnectParts = issuesToDisconnect.map(i => ({...(i.match(linkRegex)!.groups)}));
+      const toDisconnectParts = issuesToDisconnect.map(i => ({...(Array.from(i.matchAll(linkRegex)).pop()!.groups)}));
 
       core.debug(`Disconnecting issue parts: ${JSON.stringify(toDisconnectParts)}`);
 
