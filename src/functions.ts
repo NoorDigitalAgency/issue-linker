@@ -23,7 +23,7 @@ export async function getPullRequestBodyHistoryAscending(owner: string, repo: st
           }
         }`;
 
-    let data;
+    let response;
 
     let cursor = null;
 
@@ -37,33 +37,27 @@ export async function getPullRequestBodyHistoryAscending(owner: string, repo: st
 
         const variables: { owner: string; cursor: any; number: number; repo: string } = {owner, repo, number, cursor};
 
-        data = (await octokit.graphql<{
-            data: {
-                repository: {
-                    pullRequest: {
-                        userContentEdits: {
-                            nodes: Array<{
-                                createdAt: string;
-                                diff: string;
-                            }>;
-                            totalCount: number;
-                            pageInfo: {
-                                hasNextPage: boolean;
-                                endCursor: string;
-                            };
-                        }
+        response = (await octokit.graphql<{
+            repository: {
+                pullRequest: {
+                    userContentEdits: {
+                        nodes: Array<{
+                            createdAt: string;
+                            diff: string;
+                        }>;
+                        totalCount: number;
+                        pageInfo: {
+                            hasNextPage: boolean;
+                            endCursor: string;
+                        };
                     }
                 }
             }
         }>(query, variables));
 
-        const response = data;
+        cursor = response?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
 
-        data = data.data;
-
-        cursor = data?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
-
-        count = data?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
+        count = response?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
 
         iteration++;
 
@@ -75,16 +69,14 @@ export async function getPullRequestBodyHistoryAscending(owner: string, repo: st
 
             cursor,
 
-            data,
-
             response
         }));
 
         core.endGroup();
 
-        (data?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
+        (response?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
 
-    } while (data?.repository?.pullRequest?.userContentEdits?.pageInfo?.hasNextPage === true);
+    } while (response?.repository?.pullRequest?.userContentEdits?.pageInfo?.hasNextPage === true);
 
     if (edits.length !== count) {
 

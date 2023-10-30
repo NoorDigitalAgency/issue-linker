@@ -92429,29 +92429,26 @@ async function getPullRequestBodyHistoryAscending(owner, repo, number, octokit) 
             }
           }
         }`;
-    let data;
+    let response;
     let cursor = null;
     let count = 0;
     const edits = new Array();
     let iteration = 0;
     do {
         const variables = { owner, repo, number, cursor };
-        data = (await octokit.graphql(query, variables));
-        const response = data;
-        data = data.data;
-        cursor = data?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
-        count = data?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
+        response = (await octokit.graphql(query, variables));
+        cursor = response?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
+        count = response?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
         iteration++;
         core.startGroup(`Pipeline issues iteration #${iteration}`);
         core.debug((0, util_1.inspect)({
             payload: { query, variables },
             cursor,
-            data,
             response
         }));
         core.endGroup();
-        (data?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
-    } while (data?.repository?.pullRequest?.userContentEdits?.pageInfo?.hasNextPage === true);
+        (response?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
+    } while (response?.repository?.pullRequest?.userContentEdits?.pageInfo?.hasNextPage === true);
     if (edits.length !== count) {
         throw new Error(`Expected ${count} issues but queried ${edits.length}.`);
     }
