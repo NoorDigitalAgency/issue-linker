@@ -12,8 +12,8 @@ dependencies:
     specifier: ^5.1.1
     version: 5.1.1
   '@noordigitalagency/zenhub-client':
-    specifier: 2023.17.0
-    version: 2023.17.0
+    specifier: 2023.18.0
+    version: 2023.18.0
   lodash:
     specifier: ^4.17.21
     version: 4.17.21
@@ -64,8 +64,8 @@ packages:
     engines: {node: '>=14'}
     dev: false
 
-  /@noordigitalagency/zenhub-client@2023.17.0:
-    resolution: {integrity: sha512-y5FSuzdc9FbofjPndfaP8484Cz5byILcCfQIzjVxy8qdboXHIxSKbijLS155xr/5BAQlJtzkBc/QuW5iKAg3lA==, tarball: https://npm.pkg.github.com/download/@noordigitalagency/zenhub-client/2023.17.0/45a74177e4569e4290398faffae9b3e82113e93d}
+  /@noordigitalagency/zenhub-client@2023.18.0:
+    resolution: {integrity: sha512-r/DdsHrBcJ9Ido6ZvXHVZWOubgXVR8g5+2knPkE5uUTFX8wfET25U1aWZC/tuTyLuVsAEi6/J3ChkQr3F5AfJg==, tarball: https://npm.pkg.github.com/download/@noordigitalagency/zenhub-client/2023.18.0/6f15479b7bb6c7b0443da356f3789678fdf2a8ec}
     dependencies:
       '@actions/core': 1.10.1
       '@actions/github': 5.1.1
