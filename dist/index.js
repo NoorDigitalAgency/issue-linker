@@ -3472,7 +3472,7 @@ module.exports = parseParams
 
 /***/ }),
 
-/***/ 1466:
+/***/ 1328:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -18399,7 +18399,7 @@ followRedirects$1.exports.wrap = wrap;
 var followRedirectsExports = followRedirects$1.exports;
 var followRedirects = /*@__PURE__*/getDefaultExportFromCjs(followRedirectsExports);
 
-const VERSION = "1.5.1";
+const VERSION = "1.6.0";
 
 function parseProtocol(url) {
   const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -19003,6 +19003,18 @@ const wrapAsync = (asyncExecutor) => {
   })
 };
 
+const resolveFamily = ({address, family}) => {
+  if (!utils$2.isString(address)) {
+    throw TypeError('address must be a string');
+  }
+  return ({
+    address,
+    family: family || (address.indexOf('.') < 0 ? 6 : 4)
+  });
+};
+
+const buildAddressEntry = (address, family) => resolveFamily(utils$2.isObject(address) ? address : {address, family});
+
 /*eslint consistent-return:0*/
 var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
   return wrapAsync(async function dispatchHttpRequest(resolve, reject, onDone) {
@@ -19013,15 +19025,16 @@ var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
     let rejected = false;
     let req;
 
-    if (lookup && utils$2.isAsyncFn(lookup)) {
-      lookup = callbackify$1(lookup, (entry) => {
-        if(utils$2.isString(entry)) {
-          entry = [entry, entry.indexOf('.') < 0 ? 6 : 4];
-        } else if (!utils$2.isArray(entry)) {
-          throw new TypeError('lookup async function must return an array [ip: string, family: number]]')
-        }
-        return entry;
-      });
+    if (lookup) {
+      const _lookup = callbackify$1(lookup, (value) => utils$2.isArray(value) ? value : [value]);
+      // hotfix to support opt.all option which is required for node 20.x
+      lookup = (hostname, opt, cb) => {
+        _lookup(hostname, opt, (err, arg0, arg1) => {
+          const addresses = utils$2.isArray(arg0) ? arg0.map(addr => buildAddressEntry(addr)) : [buildAddressEntry(arg0, arg1)];
+
+          opt.all ? cb(err, addresses) : cb(err, addresses[0].address, addresses[0].family);
+        });
+      };
     }
 
     // temporary internal emitter until the AxiosRequest class will be implemented
@@ -19424,7 +19437,7 @@ var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
             }
             response.data = responseData;
           } catch (err) {
-            reject(AxiosError.from(err, null, config, response.request, response));
+            return reject(AxiosError.from(err, null, config, response.request, response));
           }
           settle(resolve, reject, response);
         });
@@ -19807,8 +19820,8 @@ var xhrAdapter = isXHRAdapterSupported && function (config) {
     // Specifically not if we're in a web worker, or react-native.
     if (platform.isStandardBrowserEnv) {
       // Add xsrf header
-      const xsrfValue = (config.withCredentials || isURLSameOrigin(fullPath))
-        && config.xsrfCookieName && cookies$1.read(config.xsrfCookieName);
+      // regarding CVE-2023-45857 config.withCredentials condition was removed temporarily
+      const xsrfValue = isURLSameOrigin(fullPath) && config.xsrfCookieName && cookies$1.read(config.xsrfCookieName);
 
       if (xsrfValue) {
         requestHeaders.set(config.xsrfHeaderName, xsrfValue);
@@ -24156,10 +24169,12 @@ function requireConstants$3 () {
 	const { MessageChannel, receiveMessageOnPort } = require$$0$8;
 
 	const corsSafeListedMethods = ['GET', 'HEAD', 'POST'];
+	const corsSafeListedMethodsSet = new Set(corsSafeListedMethods);
 
 	const nullBodyStatus = [101, 204, 205, 304];
 
 	const redirectStatus = [301, 302, 303, 307, 308];
+	const redirectStatusSet = new Set(redirectStatus);
 
 	// https://fetch.spec.whatwg.org/#block-bad-port
 	const badPorts = [
@@ -24170,6 +24185,8 @@ function requireConstants$3 () {
 	  '2049', '3659', '4045', '5060', '5061', '6000', '6566', '6665', '6666', '6667', '6668', '6669', '6697',
 	  '10080'
 	];
+
+	const badPortsSet = new Set(badPorts);
 
 	// https://w3c.github.io/webappsec-referrer-policy/#referrer-policies
 	const referrerPolicy = [
@@ -24183,10 +24200,12 @@ function requireConstants$3 () {
 	  'strict-origin-when-cross-origin',
 	  'unsafe-url'
 	];
+	const referrerPolicySet = new Set(referrerPolicy);
 
 	const requestRedirect = ['follow', 'manual', 'error'];
 
 	const safeMethods = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
+	const safeMethodsSet = new Set(safeMethods);
 
 	const requestMode = ['navigate', 'same-origin', 'no-cors', 'cors'];
 
@@ -24221,6 +24240,7 @@ function requireConstants$3 () {
 
 	// http://fetch.spec.whatwg.org/#forbidden-method
 	const forbiddenMethods = ['CONNECT', 'TRACE', 'TRACK'];
+	const forbiddenMethodsSet = new Set(forbiddenMethods);
 
 	const subresource = [
 	  'audio',
@@ -24236,6 +24256,7 @@ function requireConstants$3 () {
 	  'xslt',
 	  ''
 	];
+	const subresourceSet = new Set(subresource);
 
 	/** @type {globalThis['DOMException']} */
 	const DOMException = globalThis.DOMException ?? (() => {
@@ -24285,7 +24306,14 @@ function requireConstants$3 () {
 	  nullBodyStatus,
 	  safeMethods,
 	  badPorts,
-	  requestDuplex
+	  requestDuplex,
+	  subresourceSet,
+	  badPortsSet,
+	  redirectStatusSet,
+	  corsSafeListedMethodsSet,
+	  safeMethodsSet,
+	  forbiddenMethodsSet,
+	  referrerPolicySet
 	};
 	return constants$4;
 }
@@ -24345,7 +24373,7 @@ function requireUtil$4 () {
 	if (hasRequiredUtil$4) return util$i;
 	hasRequiredUtil$4 = 1;
 
-	const { redirectStatus, badPorts, referrerPolicy: referrerPolicyTokens } = requireConstants$3();
+	const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = requireConstants$3();
 	const { getGlobalOrigin } = requireGlobal();
 	const { performance } = require$$2$2;
 	const { isBlobLike, toUSVString, ReadableStreamFrom } = util$j;
@@ -24374,7 +24402,7 @@ function requireUtil$4 () {
 	// https://fetch.spec.whatwg.org/#concept-response-location-url
 	function responseLocationURL (response, requestFragment) {
 	  // 1. If response’s status is not a redirect status, then return null.
-	  if (!redirectStatus.includes(response.status)) {
+	  if (!redirectStatusSet.has(response.status)) {
 	    return null
 	  }
 
@@ -24409,7 +24437,7 @@ function requireUtil$4 () {
 
 	  // 2. If url’s scheme is an HTTP(S) scheme and url’s port is a bad port,
 	  // then return blocked.
-	  if (urlIsHttpHttpsScheme(url) && badPorts.includes(url.port)) {
+	  if (urlIsHttpHttpsScheme(url) && badPortsSet.has(url.port)) {
 	    return 'blocked'
 	  }
 
@@ -24551,7 +24579,7 @@ function requireUtil$4 () {
 	    // The left-most policy is the fallback.
 	    for (let i = policyHeader.length; i !== 0; i--) {
 	      const token = policyHeader[i - 1].trim();
-	      if (referrerPolicyTokens.includes(token)) {
+	      if (referrerPolicyTokens.has(token)) {
 	        policy = token;
 	        break
 	      }
@@ -26718,6 +26746,7 @@ function requireFile () {
 	const { webidl } = requireWebidl();
 	const { parseMIMEType, serializeAMimeType } = requireDataURL();
 	const { kEnumerableProperty } = util$j;
+	const encoder = new TextEncoder();
 
 	class File extends Blob {
 	  constructor (fileBits, fileName, options = {}) {
@@ -26991,7 +27020,7 @@ function requireFile () {
 	      }
 
 	      // 3. Append the result of UTF-8 encoding s to bytes.
-	      bytes.push(new TextEncoder().encode(s));
+	      bytes.push(encoder.encode(s));
 	    } else if (
 	      types.isAnyArrayBuffer(element) ||
 	      types.isTypedArray(element)
@@ -27361,6 +27390,8 @@ function requireBody () {
 
 	/** @type {globalThis['File']} */
 	const File = NativeFile ?? UndiciFile;
+	const textEncoder = new TextEncoder();
+	const textDecoder = new TextDecoder();
 
 	// https://fetch.spec.whatwg.org/#concept-bodyinit-extract
 	function extractBody (object, keepalive = false) {
@@ -27384,7 +27415,7 @@ function requireBody () {
 	    stream = new ReadableStream({
 	      async pull (controller) {
 	        controller.enqueue(
-	          typeof source === 'string' ? new TextEncoder().encode(source) : source
+	          typeof source === 'string' ? textEncoder.encode(source) : source
 	        );
 	        queueMicrotask(() => readableStreamClose(controller));
 	      },
@@ -27454,7 +27485,6 @@ function requireBody () {
 	    // - That the content-length is calculated in advance.
 	    // - And that all parts are pre-encoded and ready to be sent.
 
-	    const enc = new TextEncoder();
 	    const blobParts = [];
 	    const rn = new Uint8Array([13, 10]); // '\r\n'
 	    length = 0;
@@ -27462,13 +27492,13 @@ function requireBody () {
 
 	    for (const [name, value] of object) {
 	      if (typeof value === 'string') {
-	        const chunk = enc.encode(prefix +
+	        const chunk = textEncoder.encode(prefix +
 	          `; name="${escape(normalizeLinefeeds(name))}"` +
 	          `\r\n\r\n${normalizeLinefeeds(value)}\r\n`);
 	        blobParts.push(chunk);
 	        length += chunk.byteLength;
 	      } else {
-	        const chunk = enc.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` +
+	        const chunk = textEncoder.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` +
 	          (value.name ? `; filename="${escape(value.name)}"` : '') + '\r\n' +
 	          `Content-Type: ${
 	            value.type || 'application/octet-stream'
@@ -27482,7 +27512,7 @@ function requireBody () {
 	      }
 	    }
 
-	    const chunk = enc.encode(`--${boundary}--`);
+	    const chunk = textEncoder.encode(`--${boundary}--`);
 	    blobParts.push(chunk);
 	    length += chunk.byteLength;
 	    if (hasUnknownSizeValue) {
@@ -27778,14 +27808,16 @@ function requireBody () {
 	          let text = '';
 	          // application/x-www-form-urlencoded parser will keep the BOM.
 	          // https://url.spec.whatwg.org/#concept-urlencoded-parser
-	          const textDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
+	          // Note that streaming decoder is stateful and cannot be reused
+	          const streamingDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
+
 	          for await (const chunk of consumeBody(this[kState].body)) {
 	            if (!isUint8Array(chunk)) {
 	              throw new TypeError('Expected Uint8Array chunk')
 	            }
-	            text += textDecoder.decode(chunk, { stream: true });
+	            text += streamingDecoder.decode(chunk, { stream: true });
 	          }
-	          text += textDecoder.decode();
+	          text += streamingDecoder.decode();
 	          entries = new URLSearchParams(text);
 	        } catch (err) {
 	          // istanbul ignore next: Unclear when new URLSearchParams can fail on a string.
@@ -27900,7 +27932,7 @@ function requireBody () {
 
 	  // 3. Process a queue with an instance of UTF-8’s
 	  //    decoder, ioQueue, output, and "replacement".
-	  const output = new TextDecoder().decode(buffer);
+	  const output = textDecoder.decode(buffer);
 
 	  // 4. Return output.
 	  return output
@@ -28159,6 +28191,14 @@ let Request$1 = class Request {
   onRequestSent () {
     if (channels$1.bodySent.hasSubscribers) {
       channels$1.bodySent.publish({ request: this });
+    }
+
+    if (this[kHandler].onRequestSent) {
+      try {
+        this[kHandler].onRequestSent();
+      } catch (err) {
+        this.onError(err);
+      }
     }
   }
 
@@ -35457,7 +35497,7 @@ function requireResponse () {
 	  isomorphicEncode
 	} = requireUtil$4();
 	const {
-	  redirectStatus,
+	  redirectStatusSet,
 	  nullBodyStatus,
 	  DOMException
 	} = requireConstants$3();
@@ -35471,6 +35511,7 @@ function requireResponse () {
 	const { types } = require$$0$1;
 
 	const ReadableStream = globalThis.ReadableStream || require$$13.ReadableStream;
+	const textEncoder = new TextEncoder('utf-8');
 
 	// https://fetch.spec.whatwg.org/#response-class
 	class Response {
@@ -35500,7 +35541,7 @@ function requireResponse () {
 	    }
 
 	    // 1. Let bytes the result of running serialize a JavaScript value to JSON bytes on data.
-	    const bytes = new TextEncoder('utf-8').encode(
+	    const bytes = textEncoder.encode(
 	      serializeJavascriptValueToJSONString(data)
 	    );
 
@@ -35545,7 +35586,7 @@ function requireResponse () {
 	    }
 
 	    // 3. If status is not a redirect status, then throw a RangeError.
-	    if (!redirectStatus.includes(status)) {
+	    if (!redirectStatusSet.has(status)) {
 	      throw new RangeError('Invalid status code ' + status)
 	    }
 
@@ -36038,8 +36079,8 @@ function requireRequest () {
 	  makePolicyContainer
 	} = requireUtil$4();
 	const {
-	  forbiddenMethods,
-	  corsSafeListedMethods,
+	  forbiddenMethodsSet,
+	  corsSafeListedMethodsSet,
 	  referrerPolicy,
 	  requestRedirect,
 	  requestMode,
@@ -36344,7 +36385,7 @@ function requireRequest () {
 	        throw TypeError(`'${init.method}' is not a valid HTTP method.`)
 	      }
 
-	      if (forbiddenMethods.indexOf(method.toUpperCase()) !== -1) {
+	      if (forbiddenMethodsSet.has(method.toUpperCase())) {
 	        throw TypeError(`'${init.method}' HTTP method is unsupported.`)
 	      }
 
@@ -36429,7 +36470,7 @@ function requireRequest () {
 	    if (mode === 'no-cors') {
 	      // 1. If this’s request’s method is not a CORS-safelisted method,
 	      // then throw a TypeError.
-	      if (!corsSafeListedMethods.includes(request.method)) {
+	      if (!corsSafeListedMethodsSet.has(request.method)) {
 	        throw new TypeError(
 	          `'${request.method} is unsupported in no-cors mode.`
 	        )
@@ -37021,11 +37062,11 @@ function requireFetch () {
 	const assert = require$$0$3;
 	const { safelyExtractBody } = requireBody();
 	const {
-	  redirectStatus,
+	  redirectStatusSet,
 	  nullBodyStatus,
-	  safeMethods,
+	  safeMethodsSet,
 	  requestBodyHeader,
-	  subresource,
+	  subresourceSet,
 	  DOMException
 	} = requireConstants$3();
 	const { kHeadersList } = symbols$4;
@@ -37037,6 +37078,7 @@ function requireFetch () {
 	const { getGlobalDispatcher } = global$1;
 	const { webidl } = requireWebidl();
 	const { STATUS_CODES } = require$$2$1;
+	const GET_OR_HEAD = ['GET', 'HEAD'];
 
 	/** @type {import('buffer').resolveObjectURL} */
 	let resolveObjectURL;
@@ -37482,7 +37524,7 @@ function requireFetch () {
 	  if (request.priority === null) ;
 
 	  // 15. If request is a subresource request, then:
-	  if (subresource.includes(request.destination)) ;
+	  if (subresourceSet.has(request.destination)) ;
 
 	  // 16. Run main fetch given fetchParams.
 	  mainFetch(fetchParams)
@@ -38021,7 +38063,7 @@ function requireFetch () {
 	  }
 
 	  // 8. If actualResponse’s status is a redirect status, then:
-	  if (redirectStatus.includes(actualResponse.status)) {
+	  if (redirectStatusSet.has(actualResponse.status)) {
 	    // 1. If actualResponse’s status is not 303, request’s body is not null,
 	    // and the connection uses HTTP/2, then user agents may, and are even
 	    // encouraged to, transmit an RST_STREAM frame.
@@ -38139,7 +38181,7 @@ function requireFetch () {
 	  if (
 	    ([301, 302].includes(actualResponse.status) && request.method === 'POST') ||
 	    (actualResponse.status === 303 &&
-	      !['GET', 'HEAD'].includes(request.method))
+	      !GET_OR_HEAD.includes(request.method))
 	  ) {
 	    // then:
 	    // 1. Set request’s method to `GET` and request’s body to null.
@@ -38401,7 +38443,7 @@ function requireFetch () {
 	    // responses in httpCache, as per the "Invalidation" chapter of HTTP
 	    // Caching, and set storedResponse to null. [HTTP-CACHING]
 	    if (
-	      !safeMethods.includes(httpRequest.method) &&
+	      !safeMethodsSet.has(httpRequest.method) &&
 	      forwardResponse.status >= 200 &&
 	      forwardResponse.status <= 399
 	    ) ;
@@ -38926,7 +38968,7 @@ function requireFetch () {
 
 	          const willFollow = request.redirect === 'follow' &&
 	            location &&
-	            redirectStatus.includes(status);
+	            redirectStatusSet.has(status);
 
 	          // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
 	          if (request.method !== 'HEAD' && request.method !== 'CONNECT' && !nullBodyStatus.includes(status) && !willFollow) {
@@ -45913,19 +45955,14 @@ class ZenHubClient {
         });
     }
     getGitHubRepositoryId(owner, repo) {
-        var _a;
         return __awaiter$2(this, void 0, void 0, function* () {
-            const response = (yield this.octokit.graphql(`
-            query repositoryId($owner: String!, $repo: String!) {
-              organization(login: $owner){
-                repository(name: $repo){
-                  id
-                }
-              }
-            }
-        `, { owner, repo }));
-            const base64 = response.organization.repository.id;
-            return +((_a = new Buffer(base64, 'base64').toString('ascii').split('010:Repository').pop()) !== null && _a !== void 0 ? _a : '0');
+            const data = (yield this.octokit.rest.repos.get({ owner, repo })).data;
+            coreExports.startGroup(`GitHub repository`);
+            coreExports.info(require$$0$1.inspect({
+                result: data
+            }));
+            coreExports.endGroup();
+            return data.id;
         });
     }
     getGitHubIssueId(owner, repo, number) {
@@ -92341,6 +92378,86 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 7328:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getPullRequestBodyHistoryAscending = void 0;
+const util_1 = __nccwpck_require__(3837);
+const core = __importStar(__nccwpck_require__(9093));
+async function getPullRequestBodyHistoryAscending(owner, repo, number, octokit) {
+    const query = `
+            query ($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number){
+                  userContentEdits(first: 100){
+                    totalCount
+                    nodes {
+                      createdAt
+                      diff
+                    }
+                  }
+                }
+              }
+            }
+        `;
+    let data;
+    let cursor = null;
+    let count = 0;
+    const edits = new Array();
+    let iteration = 0;
+    do {
+        const variables = { owner, repo, number, cursor };
+        data = (await octokit.graphql(query, variables)).data;
+        cursor = data?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
+        count = data?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
+        iteration++;
+        core.startGroup(`Pipeline issues iteration #${iteration}`);
+        core.info((0, util_1.inspect)({
+            payload: { query, variables },
+            cursor,
+            data
+        }));
+        core.endGroup();
+        (data?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
+    } while (data?.repository?.pullRequest?.userContentEdits?.pageInfo?.hasNextPage === true);
+    if (edits.length !== count) {
+        throw new Error(`Expected ${count} issues but queried ${edits.length}.`);
+    }
+    return edits.map(edit => ({ diff: edit.diff, createdAt: new Date(edit.createdAt) }))
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .map(edit => edit.diff);
+}
+exports.getPullRequestBodyHistoryAscending = getPullRequestBodyHistoryAscending;
+
+
+/***/ }),
+
 /***/ 9356:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -92373,8 +92490,9 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(9093));
 const github_1 = __nccwpck_require__(5207);
-const zenhub_client_1 = __nccwpck_require__(1466);
+const zenhub_client_1 = __nccwpck_require__(1328);
 const lodash_1 = __nccwpck_require__(7337);
+const functions_1 = __nccwpck_require__(7328);
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -92392,16 +92510,17 @@ async function run() {
         const linkRegex = /(?:(?<owner>[A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)\/(?<repo>[A-Za-z0-9-._]+))?#(?<issue>\d+)/ig;
         const issueRegex = /https:\/\/api\.github\.com\/repos\/(?<repository>.+?)\/issues\/\d+/;
         const prNumber = github_1.context.payload.pull_request.number;
-        const pullRequest = (await github.rest.issues.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber })).data;
-        const body = pullRequest.body ?? '';
+        const history = await (0, functions_1.getPullRequestBodyHistoryAscending)(github_1.context.repo.owner, github_1.context.repo.repo, prNumber, github);
+        const body = history.length > 0 ? history.pop() ?? '' : '';
         const markerComments = (await github.paginate(github.rest.issues.listComments, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
         const owner = github_1.context.repo.owner;
         const repo = github_1.context.repo.repo;
         const links = [...body.matchAll(linkRegex)].map(link => link.groups)
             .filter((link, i, all) => all.findIndex(l => `${link.owner?.toLowerCase() ?? owner}/${link.repo?.toLowerCase() ?? repo}#${link.issue}` === `${l.owner?.toLowerCase() ?? owner}/${l.repo?.toLowerCase() ?? repo}#${l.issue}`) === i)
             .map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue }));
-        console.log(links);
+        core.debug(`Links: ${JSON.stringify(links)}`);
         const issues = [];
+        const acceptedIssues = new Array();
         for (const link of links) {
             try {
                 const issue = (await github.rest.issues.get({ owner: link.owner, repo: link.repo, issue_number: +link.issue })).data;
@@ -92412,18 +92531,15 @@ async function run() {
                 console.log(e);
             }
         }
-        const removingIssues = [];
         for (const comment of markerComments) {
             try {
-                if (comment.body && !comment.body.includes('<b>No issues to be marked!</b>')) {
-                    removingIssues.push(...[...(comment.body ?? '').matchAll(linkRegex)].map(link => link.groups).map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue })));
-                }
                 await github.rest.issues.deleteComment({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_numberL: prNumber, comment_id: comment.id });
             }
             catch (e) {
                 console.log(e);
             }
         }
+        const pullRequest = (await github.rest.issues.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber })).data;
         let markdown;
         if (issues.length === 0 || issues.every(i => i.labels.some(l => ['beta', 'production'].includes(l)) || !i.open || i.pr)) {
             markdown = `${reportMarker}⚠️⚠️<b>No issues to be marked!</b>⚠️⚠️\n@${pullRequest.user.login}, please link the related issues <b>(if any)</b> either like \`#123\` or \`NoorDigitalAgency/repository-name#456\`.${issues.length > 0 ? '\n\n🗑️<b>Invalid links:</b>\n' : ''}`;
@@ -92446,11 +92562,16 @@ async function run() {
                 else if (current.labels.includes('alpha')) {
                     line += ' [⚠️re-linking `alpha`]';
                 }
+                if (shouldMark) {
+                    acceptedIssues.push(current.id);
+                }
                 return `${previous}\n${shouldMark ? '---\n' : ''}${index + 1}. ${line}`;
             }, '')}`;
-            const issuesToConnect = (0, lodash_1.uniq)(issues.filter(i => !i.pr && i.open && i.labels.every(l => !['beta', 'production'].includes(l))).map(i => i.id));
+            const issuesToConnect = (0, lodash_1.uniq)(acceptedIssues);
             core.debug(`Issues to connect: ${JSON.stringify(issuesToConnect)}`);
-            const issuesToDisconnect = (0, lodash_1.uniq)(removingIssues.map(i => `${i.owner}/${i.repo}#${i.issue}`));
+            const issuesToDisconnect = (0, lodash_1.uniq)(history.map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
+                .filter((link, i, all) => all.findIndex(l => `${link.owner?.toLowerCase() ?? owner}/${link.repo?.toLowerCase() ?? repo}#${link.issue}` === `${l.owner?.toLowerCase() ?? owner}/${l.repo?.toLowerCase() ?? repo}#${l.issue}`) === i)
+                .map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue }))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`));
             core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
             const common = (0, lodash_1.intersection)(issuesToConnect, issuesToDisconnect);
             core.debug(`Common issues: ${JSON.stringify(common)}`);

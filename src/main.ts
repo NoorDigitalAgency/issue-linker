@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import {context, getOctokit} from '@actions/github';
 import { ZenHubClient } from "@noordigitalagency/zenhub-client";
 import { uniq, intersection, difference } from 'lodash';
+import {getPullRequestBodyHistoryAscending} from "./functions";
 
 /**
  * The main function for the action.
@@ -32,9 +33,9 @@ export async function run(): Promise<void> {
 
     const prNumber = context.payload.pull_request!.number;
 
-    const pullRequest = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber })).data;
+    const history = await getPullRequestBodyHistoryAscending(context.repo.owner, context.repo.repo, prNumber, github);
 
-    const body = pullRequest.body ?? '';
+    const body = history.length > 0 ? history.pop() ?? '' : '';
 
     const markerComments = (await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
 
@@ -48,9 +49,11 @@ export async function run(): Promise<void> {
 
         .map(link => ({ ...link, owner: link!.owner ?? owner, repo: link!.repo ?? repo, issue: link!.issue}));
 
-    console.log(links);
+    core.debug(`Links: ${JSON.stringify(links)}`);
 
     const issues = [];
+
+    const acceptedIssues = new Array<string>();
 
     for (const link of links) {
 
@@ -65,21 +68,16 @@ export async function run(): Promise<void> {
       } catch (e) { console.log(e); }
     }
 
-    const removingIssues = [];
-
     for (const comment of markerComments) {
 
       try {
-
-        if (comment.body && !comment.body.includes('<b>No issues to be marked!</b>')) {
-
-          removingIssues.push(...[...(comment.body ?? '').matchAll(linkRegex)].map(link => link.groups).map(link => ({ ...link, owner: link!.owner ?? owner, repo: link!.repo ?? repo, issue: link!.issue})));
-        }
 
         await github.rest.issues.deleteComment({ owner: context.repo.owner, repo: context.repo.repo, issue_numberL: prNumber, comment_id: comment.id });
 
       } catch (e) { console.log(e); }
     }
+
+    const pullRequest = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber })).data;
 
     let markdown;
 
@@ -121,15 +119,24 @@ export async function run(): Promise<void> {
               line += ' [⚠️re-linking `alpha`]';
             }
 
+            if (shouldMark) {
+              
+              acceptedIssues.push(current.id);
+            }
+            
             return `${previous}\n${shouldMark ? '---\n' : ''}${index + 1}. ${line}`;
 
           }, '')}`;
 
-      const issuesToConnect = uniq(issues.filter(i => !i.pr && i.open && i.labels.every(l => !['beta', 'production'].includes(l))).map(i => i.id));
+      const issuesToConnect = uniq(acceptedIssues);
 
       core.debug(`Issues to connect: ${JSON.stringify(issuesToConnect)}`);
 
-      const issuesToDisconnect = uniq(removingIssues.map(i => `${i.owner}/${i.repo}#${i.issue}`));
+      const issuesToDisconnect = uniq(history.map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
+
+          .filter((link, i, all) => all.findIndex(l => `${link!.owner?.toLowerCase() ?? owner}/${link!.repo?.toLowerCase() ?? repo}#${link!.issue}` === `${l!.owner?.toLowerCase() ?? owner}/${l!.repo?.toLowerCase() ?? repo}#${l!.issue}`) === i)
+
+          .map(link => ({ ...link, owner: link!.owner ?? owner, repo: link!.repo ?? repo, issue: link!.issue}))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`));
 
       core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
 

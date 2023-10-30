@@ -15,7 +15,7 @@
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^5.1.1",
-    "@noordigitalagency/zenhub-client": "2023.15.0",
+    "@noordigitalagency/zenhub-client": "2023.17.0",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
