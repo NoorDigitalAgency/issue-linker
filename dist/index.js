@@ -92436,15 +92436,18 @@ async function getPullRequestBodyHistoryAscending(owner, repo, number, octokit) 
     let iteration = 0;
     do {
         const variables = { owner, repo, number, cursor };
-        data = (await octokit.graphql(query, variables)).data;
+        data = (await octokit.graphql(query, variables));
+        const response = data;
+        data = data.data;
         cursor = data?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
         count = data?.repository?.pullRequest?.userContentEdits?.totalCount ?? 0;
         iteration++;
         core.startGroup(`Pipeline issues iteration #${iteration}`);
-        core.info((0, util_1.inspect)({
+        core.debug((0, util_1.inspect)({
             payload: { query, variables },
             cursor,
-            data
+            data,
+            response
         }));
         core.endGroup();
         (data?.repository?.pullRequest?.userContentEdits?.nodes ?? []).forEach(edit => edits.push(edit));
@@ -92517,6 +92520,7 @@ async function run() {
         const repo = github_1.context.repo.repo;
         core.debug(`Owner: ${owner}, Repo: ${repo}, PR Number: ${prNumber}`);
         const history = await (0, functions_1.getPullRequestBodyHistoryAscending)(owner, repo, prNumber, github);
+        core.debug(`History: ${JSON.stringify(history)}`);
         const body = history.pop() ?? '';
         core.debug(`Body: ${body}`);
         const markerComments = (await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));

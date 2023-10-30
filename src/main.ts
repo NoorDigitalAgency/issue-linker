@@ -41,6 +41,8 @@ export async function run(): Promise<void> {
 
     const history = await getPullRequestBodyHistoryAscending(owner, repo, prNumber, github);
 
+    core.debug(`History: ${JSON.stringify(history)}`);
+
     const body = history.pop() ?? '';
 
     core.debug(`Body: ${body}`);

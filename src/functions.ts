@@ -55,7 +55,11 @@ export async function getPullRequestBodyHistoryAscending(owner: string, repo: st
                     }
                 }
             }
-        }>(query, variables)).data;
+        }>(query, variables));
+
+        const response = data;
+
+        data = data.data;
 
         cursor = data?.repository?.pullRequest?.userContentEdits?.pageInfo?.endCursor;
 
@@ -65,13 +69,15 @@ export async function getPullRequestBodyHistoryAscending(owner: string, repo: st
 
         core.startGroup(`Pipeline issues iteration #${iteration}`);
 
-        core.info(inspect({
+        core.debug(inspect({
 
             payload: {query, variables},
 
             cursor,
 
-            data
+            data,
+
+            response
         }));
 
         core.endGroup();
