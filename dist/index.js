@@ -3472,7 +3472,7 @@ module.exports = parseParams
 
 /***/ }),
 
-/***/ 1328:
+/***/ 6252:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -46055,7 +46055,7 @@ class ZenHubClient {
         `;
             const variables = { input: { issueId, pullRequestId } };
             const data = (_a = (yield axios$1.post(this.config.url, { query, variables }, this.config)).data) === null || _a === void 0 ? void 0 : _a.data;
-            coreExports.startGroup(`Connect issue to pull request`);
+            coreExports.startGroup(`Remove issue from pull request`);
             coreExports.info(require$$0$1.inspect({
                 payload: { query, variables },
                 data
@@ -92493,7 +92493,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(9093));
 const github_1 = __nccwpck_require__(5207);
-const zenhub_client_1 = __nccwpck_require__(1328);
+const zenhub_client_1 = __nccwpck_require__(6252);
 const lodash_1 = __nccwpck_require__(7337);
 const functions_1 = __nccwpck_require__(7328);
 /**
@@ -92578,7 +92578,7 @@ async function run() {
         }
         const issuesToConnect = (0, lodash_1.uniq)(acceptedIssues);
         core.debug(`Issues to connect: ${JSON.stringify(issuesToConnect)}`);
-        const issuesToDisconnect = (0, lodash_1.uniq)(history.map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
+        const issuesToDisconnect = (0, lodash_1.uniq)(history.filter(b => b != null).map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
             .filter((link, i, all) => all.findIndex(l => `${link.owner?.toLowerCase() ?? owner}/${link.repo?.toLowerCase() ?? repo}#${link.issue}` === `${l.owner?.toLowerCase() ?? owner}/${l.repo?.toLowerCase() ?? repo}#${l.issue}`) === i)
             .map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue }))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`))
             .filter(i => !issuesToConnect.includes(i));

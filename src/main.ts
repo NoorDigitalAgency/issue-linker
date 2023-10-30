@@ -143,7 +143,7 @@ export async function run(): Promise<void> {
 
     core.debug(`Issues to connect: ${JSON.stringify(issuesToConnect)}`);
 
-    const issuesToDisconnect = uniq(history.map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
+    const issuesToDisconnect = uniq(history.filter(b => b != null).map(b => [...b.matchAll(linkRegex)].map(link => link.groups)
 
         .filter((link, i, all) => all.findIndex(l => `${link!.owner?.toLowerCase() ?? owner}/${link!.repo?.toLowerCase() ?? repo}#${link!.issue}` === `${l!.owner?.toLowerCase() ?? owner}/${l!.repo?.toLowerCase() ?? repo}#${l!.issue}`) === i)
 
