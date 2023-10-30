@@ -92560,7 +92560,9 @@ async function run() {
                 .reduce((previous, current, index) => {
                 let line = `${current.id}`;
                 let shouldMark = false;
+                let invalid = false;
                 if (current.pr || !current.open || current.labels.some(l => ['beta', 'production'].includes(l))) {
+                    invalid = true;
                     shouldMark = !markedInvalids;
                     markedInvalids = true;
                     line = `~~${line}~~ ${current.pr ? ' [🛑pull request]' : !current.open ? ' [📕closed]' : ` [🏷️labeled \`${current.labels.includes('beta') ? 'beta' : 'production'}\`]`}`;
@@ -92568,7 +92570,7 @@ async function run() {
                 else if (current.labels.includes('alpha')) {
                     line += ' [⚠️re-linking `alpha`]';
                 }
-                if (shouldMark) {
+                if (!invalid) {
                     acceptedIssues.push(current.id);
                 }
                 return `${previous}\n${shouldMark ? '---\n' : ''}${index + 1}. ${line}`;

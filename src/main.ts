@@ -112,8 +112,12 @@ export async function run(): Promise<void> {
 
             let shouldMark = false;
 
+            let invalid = false;
+            
             if (current.pr || !current.open || current.labels.some(l => ['beta', 'production'].includes(l))) {
 
+              invalid = true;
+              
               shouldMark = !markedInvalids;
 
               markedInvalids = true;
@@ -125,7 +129,7 @@ export async function run(): Promise<void> {
               line += ' [⚠️re-linking `alpha`]';
             }
 
-            if (shouldMark) {
+            if (!invalid) {
               
               acceptedIssues.push(current.id);
             }
