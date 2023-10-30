@@ -146,15 +146,13 @@ export async function run(): Promise<void> {
 
           .filter((link, i, all) => all.findIndex(l => `${link!.owner?.toLowerCase() ?? owner}/${link!.repo?.toLowerCase() ?? repo}#${link!.issue}` === `${l!.owner?.toLowerCase() ?? owner}/${l!.repo?.toLowerCase() ?? repo}#${l!.issue}`) === i)
 
-          .map(link => ({ ...link, owner: link!.owner ?? owner, repo: link!.repo ?? repo, issue: link!.issue}))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`));
+          .map(link => ({ ...link, owner: link!.owner ?? owner, repo: link!.repo ?? repo, issue: link!.issue}))).flat().map(link => `${link.owner}/${link.repo}#${link.issue}`))
+
+          .filter(i => !issuesToConnect.includes(i));
 
       core.debug(`Issues to disconnect: ${JSON.stringify(issuesToDisconnect)}`);
 
-      const common = intersection(issuesToConnect, issuesToDisconnect);
-
-      core.debug(`Common issues: ${JSON.stringify(common)}`);
-
-      const toConnectParts = difference(issuesToConnect, common).map(i => ({...(i.match(linkRegex)!.groups)}));
+      const toConnectParts = issuesToConnect.map(i => ({...(i.match(linkRegex)!.groups)}));
 
       core.debug(`Connecting issue parts: ${JSON.stringify(toConnectParts)}`);
 
@@ -162,7 +160,7 @@ export async function run(): Promise<void> {
 
       core.debug(`Connecting issues: ${JSON.stringify(toConnect)}`);
 
-      const toDisconnectParts = difference(issuesToDisconnect, common).map(i => ({...(i.match(linkRegex)!.groups)}));
+      const toDisconnectParts = issuesToDisconnect.map(i => ({...(i.match(linkRegex)!.groups)}));
 
       core.debug(`Disconnecting issue parts: ${JSON.stringify(toDisconnectParts)}`);
 
