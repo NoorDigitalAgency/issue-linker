@@ -33,15 +33,19 @@ export async function run(): Promise<void> {
 
     const prNumber = context.payload.pull_request!.number;
 
-    const history = await getPullRequestBodyHistoryAscending(context.repo.owner, context.repo.repo, prNumber, github);
-
-    const body = history.length > 0 ? history.pop() ?? '' : '';
-
-    const markerComments = (await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
-
     const owner = context.repo.owner;
 
     const repo = context.repo.repo;
+
+    core.debug(`Owner: ${owner}, Repo: ${repo}, PR Number: ${prNumber}`);
+
+    const history = await getPullRequestBodyHistoryAscending(owner, repo, prNumber, github);
+
+    const body = history.pop() ?? '';
+
+    core.debug(`Body: ${body}`);
+
+    const markerComments = (await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
 
     const links = [...body.matchAll(linkRegex)].map(link => link.groups)
 
@@ -72,12 +76,12 @@ export async function run(): Promise<void> {
 
       try {
 
-        await github.rest.issues.deleteComment({ owner: context.repo.owner, repo: context.repo.repo, issue_numberL: prNumber, comment_id: comment.id });
+        await github.rest.issues.deleteComment({ owner, repo, issue_numberL: prNumber, comment_id: comment.id });
 
       } catch (e) { console.log(e); }
     }
 
-    const pullRequest = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber })).data;
+    const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
 
     let markdown;
 
@@ -186,7 +190,7 @@ export async function run(): Promise<void> {
       }
     }
 
-    await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body: markdown});
+    await github.rest.issues.createComment({owner, repo, issue_number: prNumber, body: markdown});
 
   } catch (error) {
     // Fail the workflow run if an error occurs

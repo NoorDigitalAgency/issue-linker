@@ -5,20 +5,23 @@ import * as core from "@actions/core";
 export async function getPullRequestBodyHistoryAscending(owner: string, repo: string, number: number, octokit: InstanceType<typeof GitHub>): Promise<string[]> {
 
     const query = `
-            query ($owner: String!, $repo: String!, $number: Int!) {
-              repository(owner: $owner, name: $repo) {
-                pullRequest(number: $number){
-                  userContentEdits(first: 100){
-                    totalCount
-                    nodes {
-                      createdAt
-                      diff
-                    }
-                  }
+        query ($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              userContentEdits(first: 100) {
+                nodes {
+                  createdAt
+                  diff
+                }
+                totalCount
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
-        `;
+          }
+        }`;
 
     let data;
 

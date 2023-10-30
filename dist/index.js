@@ -92412,20 +92412,23 @@ const util_1 = __nccwpck_require__(3837);
 const core = __importStar(__nccwpck_require__(9093));
 async function getPullRequestBodyHistoryAscending(owner, repo, number, octokit) {
     const query = `
-            query ($owner: String!, $repo: String!, $number: Int!) {
-              repository(owner: $owner, name: $repo) {
-                pullRequest(number: $number){
-                  userContentEdits(first: 100){
-                    totalCount
-                    nodes {
-                      createdAt
-                      diff
-                    }
-                  }
+        query ($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              userContentEdits(first: 100) {
+                nodes {
+                  createdAt
+                  diff
+                }
+                totalCount
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
-        `;
+          }
+        }`;
     let data;
     let cursor = null;
     let count = 0;
@@ -92510,11 +92513,13 @@ async function run() {
         const linkRegex = /(?:(?<owner>[A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)\/(?<repo>[A-Za-z0-9-._]+))?#(?<issue>\d+)/ig;
         const issueRegex = /https:\/\/api\.github\.com\/repos\/(?<repository>.+?)\/issues\/\d+/;
         const prNumber = github_1.context.payload.pull_request.number;
-        const history = await (0, functions_1.getPullRequestBodyHistoryAscending)(github_1.context.repo.owner, github_1.context.repo.repo, prNumber, github);
-        const body = history.length > 0 ? history.pop() ?? '' : '';
-        const markerComments = (await github.paginate(github.rest.issues.listComments, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
         const owner = github_1.context.repo.owner;
         const repo = github_1.context.repo.repo;
+        core.debug(`Owner: ${owner}, Repo: ${repo}, PR Number: ${prNumber}`);
+        const history = await (0, functions_1.getPullRequestBodyHistoryAscending)(owner, repo, prNumber, github);
+        const body = history.pop() ?? '';
+        core.debug(`Body: ${body}`);
+        const markerComments = (await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber })).filter(c => c.body?.startsWith(reportMarker));
         const links = [...body.matchAll(linkRegex)].map(link => link.groups)
             .filter((link, i, all) => all.findIndex(l => `${link.owner?.toLowerCase() ?? owner}/${link.repo?.toLowerCase() ?? repo}#${link.issue}` === `${l.owner?.toLowerCase() ?? owner}/${l.repo?.toLowerCase() ?? repo}#${l.issue}`) === i)
             .map(link => ({ ...link, owner: link.owner ?? owner, repo: link.repo ?? repo, issue: link.issue }));
@@ -92533,13 +92538,13 @@ async function run() {
         }
         for (const comment of markerComments) {
             try {
-                await github.rest.issues.deleteComment({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_numberL: prNumber, comment_id: comment.id });
+                await github.rest.issues.deleteComment({ owner, repo, issue_numberL: prNumber, comment_id: comment.id });
             }
             catch (e) {
                 console.log(e);
             }
         }
-        const pullRequest = (await github.rest.issues.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber })).data;
+        const pullRequest = (await github.rest.issues.get({ owner, repo, issue_number: prNumber })).data;
         let markdown;
         if (issues.length === 0 || issues.every(i => i.labels.some(l => ['beta', 'production'].includes(l)) || !i.open || i.pr)) {
             markdown = `${reportMarker}⚠️⚠️<b>No issues to be marked!</b>⚠️⚠️\n@${pullRequest.user.login}, please link the related issues <b>(if any)</b> either like \`#123\` or \`NoorDigitalAgency/repository-name#456\`.${issues.length > 0 ? '\n\n🗑️<b>Invalid links:</b>\n' : ''}`;
@@ -92598,7 +92603,7 @@ async function run() {
                 }
             }
         }
-        await github.rest.issues.createComment({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: prNumber, body: markdown });
+        await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: markdown });
     }
     catch (error) {
         // Fail the workflow run if an error occurs
