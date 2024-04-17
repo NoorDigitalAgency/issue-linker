@@ -3472,7 +3472,7 @@ module.exports = parseParams
 
 /***/ }),
 
-/***/ 6252:
+/***/ 1466:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -18399,7 +18399,7 @@ followRedirects$1.exports.wrap = wrap;
 var followRedirectsExports = followRedirects$1.exports;
 var followRedirects = /*@__PURE__*/getDefaultExportFromCjs(followRedirectsExports);
 
-const VERSION = "1.6.0";
+const VERSION = "1.5.1";
 
 function parseProtocol(url) {
   const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -19003,18 +19003,6 @@ const wrapAsync = (asyncExecutor) => {
   })
 };
 
-const resolveFamily = ({address, family}) => {
-  if (!utils$2.isString(address)) {
-    throw TypeError('address must be a string');
-  }
-  return ({
-    address,
-    family: family || (address.indexOf('.') < 0 ? 6 : 4)
-  });
-};
-
-const buildAddressEntry = (address, family) => resolveFamily(utils$2.isObject(address) ? address : {address, family});
-
 /*eslint consistent-return:0*/
 var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
   return wrapAsync(async function dispatchHttpRequest(resolve, reject, onDone) {
@@ -19025,16 +19013,15 @@ var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
     let rejected = false;
     let req;
 
-    if (lookup) {
-      const _lookup = callbackify$1(lookup, (value) => utils$2.isArray(value) ? value : [value]);
-      // hotfix to support opt.all option which is required for node 20.x
-      lookup = (hostname, opt, cb) => {
-        _lookup(hostname, opt, (err, arg0, arg1) => {
-          const addresses = utils$2.isArray(arg0) ? arg0.map(addr => buildAddressEntry(addr)) : [buildAddressEntry(arg0, arg1)];
-
-          opt.all ? cb(err, addresses) : cb(err, addresses[0].address, addresses[0].family);
-        });
-      };
+    if (lookup && utils$2.isAsyncFn(lookup)) {
+      lookup = callbackify$1(lookup, (entry) => {
+        if(utils$2.isString(entry)) {
+          entry = [entry, entry.indexOf('.') < 0 ? 6 : 4];
+        } else if (!utils$2.isArray(entry)) {
+          throw new TypeError('lookup async function must return an array [ip: string, family: number]]')
+        }
+        return entry;
+      });
     }
 
     // temporary internal emitter until the AxiosRequest class will be implemented
@@ -19437,7 +19424,7 @@ var httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
             }
             response.data = responseData;
           } catch (err) {
-            return reject(AxiosError.from(err, null, config, response.request, response));
+            reject(AxiosError.from(err, null, config, response.request, response));
           }
           settle(resolve, reject, response);
         });
@@ -19820,8 +19807,8 @@ var xhrAdapter = isXHRAdapterSupported && function (config) {
     // Specifically not if we're in a web worker, or react-native.
     if (platform.isStandardBrowserEnv) {
       // Add xsrf header
-      // regarding CVE-2023-45857 config.withCredentials condition was removed temporarily
-      const xsrfValue = isURLSameOrigin(fullPath) && config.xsrfCookieName && cookies$1.read(config.xsrfCookieName);
+      const xsrfValue = (config.withCredentials || isURLSameOrigin(fullPath))
+        && config.xsrfCookieName && cookies$1.read(config.xsrfCookieName);
 
       if (xsrfValue) {
         requestHeaders.set(config.xsrfHeaderName, xsrfValue);
@@ -24169,12 +24156,10 @@ function requireConstants$3 () {
 	const { MessageChannel, receiveMessageOnPort } = require$$0$8;
 
 	const corsSafeListedMethods = ['GET', 'HEAD', 'POST'];
-	const corsSafeListedMethodsSet = new Set(corsSafeListedMethods);
 
 	const nullBodyStatus = [101, 204, 205, 304];
 
 	const redirectStatus = [301, 302, 303, 307, 308];
-	const redirectStatusSet = new Set(redirectStatus);
 
 	// https://fetch.spec.whatwg.org/#block-bad-port
 	const badPorts = [
@@ -24185,8 +24170,6 @@ function requireConstants$3 () {
 	  '2049', '3659', '4045', '5060', '5061', '6000', '6566', '6665', '6666', '6667', '6668', '6669', '6697',
 	  '10080'
 	];
-
-	const badPortsSet = new Set(badPorts);
 
 	// https://w3c.github.io/webappsec-referrer-policy/#referrer-policies
 	const referrerPolicy = [
@@ -24200,12 +24183,10 @@ function requireConstants$3 () {
 	  'strict-origin-when-cross-origin',
 	  'unsafe-url'
 	];
-	const referrerPolicySet = new Set(referrerPolicy);
 
 	const requestRedirect = ['follow', 'manual', 'error'];
 
 	const safeMethods = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
-	const safeMethodsSet = new Set(safeMethods);
 
 	const requestMode = ['navigate', 'same-origin', 'no-cors', 'cors'];
 
@@ -24240,7 +24221,6 @@ function requireConstants$3 () {
 
 	// http://fetch.spec.whatwg.org/#forbidden-method
 	const forbiddenMethods = ['CONNECT', 'TRACE', 'TRACK'];
-	const forbiddenMethodsSet = new Set(forbiddenMethods);
 
 	const subresource = [
 	  'audio',
@@ -24256,7 +24236,6 @@ function requireConstants$3 () {
 	  'xslt',
 	  ''
 	];
-	const subresourceSet = new Set(subresource);
 
 	/** @type {globalThis['DOMException']} */
 	const DOMException = globalThis.DOMException ?? (() => {
@@ -24306,14 +24285,7 @@ function requireConstants$3 () {
 	  nullBodyStatus,
 	  safeMethods,
 	  badPorts,
-	  requestDuplex,
-	  subresourceSet,
-	  badPortsSet,
-	  redirectStatusSet,
-	  corsSafeListedMethodsSet,
-	  safeMethodsSet,
-	  forbiddenMethodsSet,
-	  referrerPolicySet
+	  requestDuplex
 	};
 	return constants$4;
 }
@@ -24373,7 +24345,7 @@ function requireUtil$4 () {
 	if (hasRequiredUtil$4) return util$i;
 	hasRequiredUtil$4 = 1;
 
-	const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = requireConstants$3();
+	const { redirectStatus, badPorts, referrerPolicy: referrerPolicyTokens } = requireConstants$3();
 	const { getGlobalOrigin } = requireGlobal();
 	const { performance } = require$$2$2;
 	const { isBlobLike, toUSVString, ReadableStreamFrom } = util$j;
@@ -24402,7 +24374,7 @@ function requireUtil$4 () {
 	// https://fetch.spec.whatwg.org/#concept-response-location-url
 	function responseLocationURL (response, requestFragment) {
 	  // 1. If response’s status is not a redirect status, then return null.
-	  if (!redirectStatusSet.has(response.status)) {
+	  if (!redirectStatus.includes(response.status)) {
 	    return null
 	  }
 
@@ -24437,7 +24409,7 @@ function requireUtil$4 () {
 
 	  // 2. If url’s scheme is an HTTP(S) scheme and url’s port is a bad port,
 	  // then return blocked.
-	  if (urlIsHttpHttpsScheme(url) && badPortsSet.has(url.port)) {
+	  if (urlIsHttpHttpsScheme(url) && badPorts.includes(url.port)) {
 	    return 'blocked'
 	  }
 
@@ -24579,7 +24551,7 @@ function requireUtil$4 () {
 	    // The left-most policy is the fallback.
 	    for (let i = policyHeader.length; i !== 0; i--) {
 	      const token = policyHeader[i - 1].trim();
-	      if (referrerPolicyTokens.has(token)) {
+	      if (referrerPolicyTokens.includes(token)) {
 	        policy = token;
 	        break
 	      }
@@ -26746,7 +26718,6 @@ function requireFile () {
 	const { webidl } = requireWebidl();
 	const { parseMIMEType, serializeAMimeType } = requireDataURL();
 	const { kEnumerableProperty } = util$j;
-	const encoder = new TextEncoder();
 
 	class File extends Blob {
 	  constructor (fileBits, fileName, options = {}) {
@@ -27020,7 +26991,7 @@ function requireFile () {
 	      }
 
 	      // 3. Append the result of UTF-8 encoding s to bytes.
-	      bytes.push(encoder.encode(s));
+	      bytes.push(new TextEncoder().encode(s));
 	    } else if (
 	      types.isAnyArrayBuffer(element) ||
 	      types.isTypedArray(element)
@@ -27390,8 +27361,6 @@ function requireBody () {
 
 	/** @type {globalThis['File']} */
 	const File = NativeFile ?? UndiciFile;
-	const textEncoder = new TextEncoder();
-	const textDecoder = new TextDecoder();
 
 	// https://fetch.spec.whatwg.org/#concept-bodyinit-extract
 	function extractBody (object, keepalive = false) {
@@ -27415,7 +27384,7 @@ function requireBody () {
 	    stream = new ReadableStream({
 	      async pull (controller) {
 	        controller.enqueue(
-	          typeof source === 'string' ? textEncoder.encode(source) : source
+	          typeof source === 'string' ? new TextEncoder().encode(source) : source
 	        );
 	        queueMicrotask(() => readableStreamClose(controller));
 	      },
@@ -27485,6 +27454,7 @@ function requireBody () {
 	    // - That the content-length is calculated in advance.
 	    // - And that all parts are pre-encoded and ready to be sent.
 
+	    const enc = new TextEncoder();
 	    const blobParts = [];
 	    const rn = new Uint8Array([13, 10]); // '\r\n'
 	    length = 0;
@@ -27492,13 +27462,13 @@ function requireBody () {
 
 	    for (const [name, value] of object) {
 	      if (typeof value === 'string') {
-	        const chunk = textEncoder.encode(prefix +
+	        const chunk = enc.encode(prefix +
 	          `; name="${escape(normalizeLinefeeds(name))}"` +
 	          `\r\n\r\n${normalizeLinefeeds(value)}\r\n`);
 	        blobParts.push(chunk);
 	        length += chunk.byteLength;
 	      } else {
-	        const chunk = textEncoder.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` +
+	        const chunk = enc.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` +
 	          (value.name ? `; filename="${escape(value.name)}"` : '') + '\r\n' +
 	          `Content-Type: ${
 	            value.type || 'application/octet-stream'
@@ -27512,7 +27482,7 @@ function requireBody () {
 	      }
 	    }
 
-	    const chunk = textEncoder.encode(`--${boundary}--`);
+	    const chunk = enc.encode(`--${boundary}--`);
 	    blobParts.push(chunk);
 	    length += chunk.byteLength;
 	    if (hasUnknownSizeValue) {
@@ -27808,16 +27778,14 @@ function requireBody () {
 	          let text = '';
 	          // application/x-www-form-urlencoded parser will keep the BOM.
 	          // https://url.spec.whatwg.org/#concept-urlencoded-parser
-	          // Note that streaming decoder is stateful and cannot be reused
-	          const streamingDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
-
+	          const textDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
 	          for await (const chunk of consumeBody(this[kState].body)) {
 	            if (!isUint8Array(chunk)) {
 	              throw new TypeError('Expected Uint8Array chunk')
 	            }
-	            text += streamingDecoder.decode(chunk, { stream: true });
+	            text += textDecoder.decode(chunk, { stream: true });
 	          }
-	          text += streamingDecoder.decode();
+	          text += textDecoder.decode();
 	          entries = new URLSearchParams(text);
 	        } catch (err) {
 	          // istanbul ignore next: Unclear when new URLSearchParams can fail on a string.
@@ -27932,7 +27900,7 @@ function requireBody () {
 
 	  // 3. Process a queue with an instance of UTF-8’s
 	  //    decoder, ioQueue, output, and "replacement".
-	  const output = textDecoder.decode(buffer);
+	  const output = new TextDecoder().decode(buffer);
 
 	  // 4. Return output.
 	  return output
@@ -28191,14 +28159,6 @@ let Request$1 = class Request {
   onRequestSent () {
     if (channels$1.bodySent.hasSubscribers) {
       channels$1.bodySent.publish({ request: this });
-    }
-
-    if (this[kHandler].onRequestSent) {
-      try {
-        this[kHandler].onRequestSent();
-      } catch (err) {
-        this.onError(err);
-      }
     }
   }
 
@@ -35497,7 +35457,7 @@ function requireResponse () {
 	  isomorphicEncode
 	} = requireUtil$4();
 	const {
-	  redirectStatusSet,
+	  redirectStatus,
 	  nullBodyStatus,
 	  DOMException
 	} = requireConstants$3();
@@ -35511,7 +35471,6 @@ function requireResponse () {
 	const { types } = require$$0$1;
 
 	const ReadableStream = globalThis.ReadableStream || require$$13.ReadableStream;
-	const textEncoder = new TextEncoder('utf-8');
 
 	// https://fetch.spec.whatwg.org/#response-class
 	class Response {
@@ -35541,7 +35500,7 @@ function requireResponse () {
 	    }
 
 	    // 1. Let bytes the result of running serialize a JavaScript value to JSON bytes on data.
-	    const bytes = textEncoder.encode(
+	    const bytes = new TextEncoder('utf-8').encode(
 	      serializeJavascriptValueToJSONString(data)
 	    );
 
@@ -35586,7 +35545,7 @@ function requireResponse () {
 	    }
 
 	    // 3. If status is not a redirect status, then throw a RangeError.
-	    if (!redirectStatusSet.has(status)) {
+	    if (!redirectStatus.includes(status)) {
 	      throw new RangeError('Invalid status code ' + status)
 	    }
 
@@ -36079,8 +36038,8 @@ function requireRequest () {
 	  makePolicyContainer
 	} = requireUtil$4();
 	const {
-	  forbiddenMethodsSet,
-	  corsSafeListedMethodsSet,
+	  forbiddenMethods,
+	  corsSafeListedMethods,
 	  referrerPolicy,
 	  requestRedirect,
 	  requestMode,
@@ -36385,7 +36344,7 @@ function requireRequest () {
 	        throw TypeError(`'${init.method}' is not a valid HTTP method.`)
 	      }
 
-	      if (forbiddenMethodsSet.has(method.toUpperCase())) {
+	      if (forbiddenMethods.indexOf(method.toUpperCase()) !== -1) {
 	        throw TypeError(`'${init.method}' HTTP method is unsupported.`)
 	      }
 
@@ -36470,7 +36429,7 @@ function requireRequest () {
 	    if (mode === 'no-cors') {
 	      // 1. If this’s request’s method is not a CORS-safelisted method,
 	      // then throw a TypeError.
-	      if (!corsSafeListedMethodsSet.has(request.method)) {
+	      if (!corsSafeListedMethods.includes(request.method)) {
 	        throw new TypeError(
 	          `'${request.method} is unsupported in no-cors mode.`
 	        )
@@ -37062,11 +37021,11 @@ function requireFetch () {
 	const assert = require$$0$3;
 	const { safelyExtractBody } = requireBody();
 	const {
-	  redirectStatusSet,
+	  redirectStatus,
 	  nullBodyStatus,
-	  safeMethodsSet,
+	  safeMethods,
 	  requestBodyHeader,
-	  subresourceSet,
+	  subresource,
 	  DOMException
 	} = requireConstants$3();
 	const { kHeadersList } = symbols$4;
@@ -37078,7 +37037,6 @@ function requireFetch () {
 	const { getGlobalDispatcher } = global$1;
 	const { webidl } = requireWebidl();
 	const { STATUS_CODES } = require$$2$1;
-	const GET_OR_HEAD = ['GET', 'HEAD'];
 
 	/** @type {import('buffer').resolveObjectURL} */
 	let resolveObjectURL;
@@ -37524,7 +37482,7 @@ function requireFetch () {
 	  if (request.priority === null) ;
 
 	  // 15. If request is a subresource request, then:
-	  if (subresourceSet.has(request.destination)) ;
+	  if (subresource.includes(request.destination)) ;
 
 	  // 16. Run main fetch given fetchParams.
 	  mainFetch(fetchParams)
@@ -38063,7 +38021,7 @@ function requireFetch () {
 	  }
 
 	  // 8. If actualResponse’s status is a redirect status, then:
-	  if (redirectStatusSet.has(actualResponse.status)) {
+	  if (redirectStatus.includes(actualResponse.status)) {
 	    // 1. If actualResponse’s status is not 303, request’s body is not null,
 	    // and the connection uses HTTP/2, then user agents may, and are even
 	    // encouraged to, transmit an RST_STREAM frame.
@@ -38181,7 +38139,7 @@ function requireFetch () {
 	  if (
 	    ([301, 302].includes(actualResponse.status) && request.method === 'POST') ||
 	    (actualResponse.status === 303 &&
-	      !GET_OR_HEAD.includes(request.method))
+	      !['GET', 'HEAD'].includes(request.method))
 	  ) {
 	    // then:
 	    // 1. Set request’s method to `GET` and request’s body to null.
@@ -38443,7 +38401,7 @@ function requireFetch () {
 	    // responses in httpCache, as per the "Invalidation" chapter of HTTP
 	    // Caching, and set storedResponse to null. [HTTP-CACHING]
 	    if (
-	      !safeMethodsSet.has(httpRequest.method) &&
+	      !safeMethods.includes(httpRequest.method) &&
 	      forwardResponse.status >= 200 &&
 	      forwardResponse.status <= 399
 	    ) ;
@@ -38968,7 +38926,7 @@ function requireFetch () {
 
 	          const willFollow = request.redirect === 'follow' &&
 	            location &&
-	            redirectStatusSet.has(status);
+	            redirectStatus.includes(status);
 
 	          // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
 	          if (request.method !== 'HEAD' && request.method !== 'CONNECT' && !nullBodyStatus.includes(status) && !willFollow) {
@@ -45955,14 +45913,19 @@ class ZenHubClient {
         });
     }
     getGitHubRepositoryId(owner, repo) {
+        var _a;
         return __awaiter$2(this, void 0, void 0, function* () {
-            const data = (yield this.octokit.rest.repos.get({ owner, repo })).data;
-            coreExports.startGroup(`GitHub repository`);
-            coreExports.info(require$$0$1.inspect({
-                result: data
-            }));
-            coreExports.endGroup();
-            return data.id;
+            const response = (yield this.octokit.graphql(`
+            query repositoryId($owner: String!, $repo: String!) {
+              organization(login: $owner){
+                repository(name: $repo){
+                  id
+                }
+              }
+            }
+        `, { owner, repo }));
+            const base64 = response.organization.repository.id;
+            return +((_a = new Buffer(base64, 'base64').toString('ascii').split('010:Repository').pop()) !== null && _a !== void 0 ? _a : '0');
         });
     }
     getGitHubIssueId(owner, repo, number) {
@@ -46055,7 +46018,7 @@ class ZenHubClient {
         `;
             const variables = { input: { issueId, pullRequestId } };
             const data = (_a = (yield axios$1.post(this.config.url, { query, variables }, this.config)).data) === null || _a === void 0 ? void 0 : _a.data;
-            coreExports.startGroup(`Remove issue from pull request`);
+            coreExports.startGroup(`Connect issue to pull request`);
             coreExports.info(require$$0$1.inspect({
                 payload: { query, variables },
                 data
@@ -92493,7 +92456,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(9093));
 const github_1 = __nccwpck_require__(5207);
-const zenhub_client_1 = __nccwpck_require__(6252);
+const zenhub_client_1 = __nccwpck_require__(1466);
 const lodash_1 = __nccwpck_require__(7337);
 const functions_1 = __nccwpck_require__(7328);
 /**
