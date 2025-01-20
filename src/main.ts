@@ -3,6 +3,7 @@ import {context, getOctokit} from '@actions/github';
 import { ZenHubClient } from "@noordigitalagency/zenhub-client";
 import { uniq } from 'lodash';
 import {getPullRequestBodyHistoryAscending} from "./functions";
+import { inspect } from 'util';
 
 /**
  * The main function for the action.
@@ -182,6 +183,8 @@ export async function run(): Promise<void> {
       if (toConnect.length > 0) {
 
         core.debug('Connecting issues..');
+
+        core.debug(`Issue to PR connect: ${inspect({toConnect, pr},false, 7)}`);
 
         await client.connectGitHubIssueToGitHubPullRequest(toConnect, pr);
       }
