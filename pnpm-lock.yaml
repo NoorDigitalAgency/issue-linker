@@ -15,8 +15,8 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1
       '@noordigitalagency/zenhub-client':
-        specifier: 2026.1.0
-        version: 2026.1.0
+        specifier: 2026.2.0
+        version: 2026.2.0
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -49,8 +49,8 @@ packages:
     resolution: {integrity: sha512-JUFJad5lv7jxj926GPgymrWQxxjPYuJNiNjNMzqT+HiuP6Vl3dk5xzG+8sTX96np0ZAluvaMzPsjhHZ5rNuNQQ==}
     engines: {node: '>=14'}
 
-  '@noordigitalagency/zenhub-client@2026.1.0':
-    resolution: {integrity: sha512-lqQPXQpD4e17N3R95aAmmwHMqgj0Zrxh/KWhBebv6iy1aFDNiIrU6EGHITwCj9h9iNR5htce6ewcQ8zh56tjZw==, tarball: https://npm.pkg.github.com/download/@noordigitalagency/zenhub-client/2026.1.0/26e3c4434a07626a798a3239331beecb1d3afc1b}
+  '@noordigitalagency/zenhub-client@2026.2.0':
+    resolution: {integrity: sha512-0wOBuiCdOGci1NwaYFpck5h1/3xBuhn2HbCMIyLcDfFS7DA0lJ3l5+BegoJ2v+KLhCLgF68GN8dHq6lnDG4emA==, tarball: https://npm.pkg.github.com/download/@noordigitalagency/zenhub-client/2026.2.0/b0f7faa6a437418fed48076527995f05f6e73679}
 
   '@octokit/auth-token@2.5.0':
     resolution: {integrity: sha512-r5FVUJCOLl19AxiuZD2VRZ/ORjp/4IN98Of6YJoJOkY75CIBuYfmiNHGrDwXr+aLGG55igl9QrxX3hbiXlLb+g==}
@@ -217,7 +217,7 @@ snapshots:
 
   '@fastify/busboy@2.0.0': {}
 
-  '@noordigitalagency/zenhub-client@2026.1.0':
+  '@noordigitalagency/zenhub-client@2026.2.0':
     dependencies:
       '@actions/core': 1.10.1
       '@actions/github': 5.1.1
